@@ -1,0 +1,233 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CICLO DA UREIA — MODELO ABM COMPLETO
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+breed [metabolites metabolite]
+
+metabolites-own [
+  tipo
+]
+
+patches-own [
+  compartimento
+]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; SETUP
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to setup
+  clear-all
+  setup-compartments
+  setup-metabolites
+  reset-ticks
+end
+
+to setup-compartments
+  ask patches [
+    if pxcor < 0 [
+      set compartimento "mitocondria"
+      set pcolor red
+    ]
+    if pxcor >= 0 [
+      set compartimento "citosol"
+      set pcolor blue
+    ]
+  ]
+end
+
+to setup-metabolites
+  ;; Substratos principais
+  create-metabolites 50 [
+    set tipo "NH3"
+    setxy random-xcor random-ycor
+  ]
+
+  create-metabolites 50 [
+    set tipo "CO2"
+    setxy random-xcor random-ycor
+  ]
+
+  create-metabolites 60 [
+    set tipo "ATP"
+    setxy random-xcor random-ycor
+  ]
+
+  create-metabolites 40 [
+    set tipo "Aspartato"
+    setxy random-xcor random-ycor
+  ]
+
+  ;; Loop estrutural
+  create-metabolites 30 [
+    set tipo "Ornitina"
+    setxy random-xcor random-ycor
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MOVIMENTO
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to move-metabolites
+  ask metabolites [
+    rt random 360
+    fd 1
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; REAÇÕES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; 1. CPS1
+to reaction-cps1
+  ask metabolites with [tipo = "NH3"] [
+    if [compartimento] of patch-here = "mitocondria" [
+      let co2 one-of other metabolites-here with [tipo = "CO2"]
+      let atps other metabolites-here with [tipo = "ATP"]
+
+      if co2 != nobody and count atps >= 2 and random-float 1 < 0.3 [
+        ask co2 [ die ]
+        ask n-of 2 atps [ die ]
+        die
+
+        sprout-metabolites 1 [
+          set tipo "Carbamoil"
+        ]
+      ]
+    ]
+  ]
+end
+
+;; 2. Citrulina
+to reaction-citrulline
+  ask metabolites with [tipo = "Carbamoil"] [
+    let orn one-of other metabolites-here with [tipo = "Ornitina"]
+
+    if orn != nobody and random-float 1 < 0.5 [
+      ask orn [ die ]
+      die
+
+      sprout-metabolites 1 [
+        set tipo "Citrulina"
+      ]
+    ]
+  ]
+end
+
+;; 3. Argininosuccinato
+to reaction-argininosuccinate
+  ask metabolites with [tipo = "Citrulina"] [
+    let asp one-of other metabolites-here with [tipo = "Aspartato"]
+    let atp one-of other metabolites-here with [tipo = "ATP"]
+
+    if asp != nobody and atp != nobody and random-float 1 < 0.4 [
+      ask asp [ die ]
+      ask atp [ die ]
+      die
+
+      sprout-metabolites 1 [
+        set tipo "Argininosuccinato"
+      ]
+    ]
+  ]
+end
+
+;; 4. Arginina + Fumarato
+to reaction-arginine
+  ask metabolites with [tipo = "Argininosuccinato"] [
+    if random-float 1 < 0.5 [
+      die
+
+      sprout-metabolites 1 [
+        set tipo "Arginina"
+      ]
+      sprout-metabolites 1 [
+        set tipo "Fumarato"
+      ]
+    ]
+  ]
+end
+
+;; 5. Ureia
+to reaction-urea
+  ask metabolites with [tipo = "Arginina"] [
+    if random-float 1 < 0.5 [
+      die
+
+      sprout-metabolites 1 [
+        set tipo "Ureia"
+      ]
+      sprout-metabolites 1 [
+        set tipo "Ornitina"
+      ]
+    ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; TRANSPORTE
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to transport-citrulline
+  ask metabolites with [tipo = "Citrulina"] [
+    if [compartimento] of patch-here = "mitocondria" [
+      set xcor abs xcor
+    ]
+  ]
+end
+
+to transport-ornithine
+  ask metabolites with [tipo = "Ornitina"] [
+    if [compartimento] of patch-here = "citosol" [
+      set xcor -abs xcor
+    ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ENTRADA E SAÍDA
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to replenish
+  if ticks mod 5 = 0 [
+    create-metabolites 5 [
+      set tipo "NH3"
+      setxy random-xcor random-ycor
+    ]
+
+    create-metabolites 5 [
+      set tipo "ATP"
+      setxy random-xcor random-ycor
+    ]
+  ]
+end
+
+to remove-urea
+  ask metabolites with [tipo = "Ureia"] [
+    if random-float 1 < 0.1 [ die ]
+  ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LOOP
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to go
+  move-metabolites
+
+  reaction-cps1
+  reaction-citrulline
+  reaction-argininosuccinate
+  reaction-arginine
+  reaction-urea
+
+  transport-citrulline
+  transport-ornithine
+
+  replenish
+  remove-urea
+
+  tick
+end

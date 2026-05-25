@@ -1,0 +1,340 @@
+;; ============================================================
+;; CICLO DA UREIA - 4 Quadrantes
+;; ============================================================
+
+;; --- BREEDS: COMPOSTOS ---
+breed [nh3s nh3]
+breed [co2s co2]
+breed [nags nag]
+breed [carbamoils-fosfatos carbamoil-fosfato]
+breed [ortininas ortinina]
+breed [citrulinas citrulina]
+breed [fosfatos-inorganicos fosfato-inorganico]
+breed [citrulils-amp citrulil-amp]
+breed [argininosuccinatos argininosuccinato]
+breed [argininas arginina]
+breed [aspartatos aspartato]
+breed [aguas agua]
+breed [atps atp]
+breed [amps amp]
+breed [fumaratos fumarato]
+breed [ureias ureia]
+
+;; --- BREEDS: ENZIMAS ---
+breed [cps1s cps1]
+breed [otcs otc]
+breed [ass1s ass1]
+breed [asls asl]
+breed [args arg]
+
+;; --- PROPRIEDADES ---
+turtles-own [
+  compartment
+  allowed-zones
+  birth-tick
+]
+
+patches-own [
+  zone
+]
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+
+to setup
+  clear-all
+
+  ask patches [
+    ifelse pycor >= 0 [
+      ifelse pxcor < 0 [
+        set zone "top-left"
+        set pcolor violet + 3
+      ][
+        set zone "top-right"
+        set pcolor violet + 3
+      ]
+    ][
+      ifelse pxcor < 0 [
+        set zone "bot-left"
+        set pcolor violet + 3
+      ][
+        set zone "bot-right"
+        set pcolor green + 1
+      ]
+    ]
+  ]
+
+  ;; --- Substratos da CPS1 na mitocôndria ---
+  create-nh3s 10 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color violet - 1 set size 0.8 set shape "square"
+  ]
+
+  create-co2s 10 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color violet - 1 set size 1.3 set shape "cloud"
+  ]
+
+  ;; NAG já presente na mitocôndria — ativador alostérico, não é consumido
+  create-nags 5 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color violet - 1 set size 0.8 set shape "triangle"
+  ]
+
+  ;; --- Compostos da Mitocôndria ---
+  create-ortininas 6 [
+    set allowed-zones ["top-right" "bot-right"]
+    place-in "top-right"
+    set color yellow set size 2.0 set shape "circle"
+  ]
+
+  ;; --- Compostos que entram no Citosol ---
+  create-aspartatos 8 [
+    set allowed-zones ["bot-left" "bot-right"]
+    place-in "bot-right"
+    set color cyan - 1 set size 2 set shape "circle"
+  ]
+
+  create-atps 8 [
+    set allowed-zones ["bot-left"]
+    place-in "bot-left"
+    set color orange set size 1.9 set shape "lightning"
+  ]
+
+  create-aguas 8 [
+    set allowed-zones ["top-right"]
+    place-in "top-right"
+    set color sky set size 1.5 set shape "drop"
+  ]
+
+  ;; --- Enzimas ---
+  create-cps1s 3 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color violet - 1 set size 0.8 set shape "star"
+  ]
+
+  create-otcs 3 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color red set size 2.5 set shape "star"
+  ]
+
+  create-ass1s 3 [
+    set allowed-zones ["bot-left"]
+    place-in "bot-left"
+    set color magenta + 1 set size 2.5 set shape "star"
+  ]
+
+  create-asls 3 [
+    set allowed-zones ["top-left"]
+    place-in "top-left"
+    set color red - 2 set size 2.5 set shape "star"
+  ]
+
+  create-args 3 [
+    set allowed-zones ["top-right"]
+    place-in "top-right"
+    set color violet - 2 set size 2.5 set shape "star"
+  ]
+
+  reset-ticks
+end
+
+to place-in [zone-name]
+  let target-patches patches with [zone = zone-name]
+  move-to one-of target-patches
+  set compartment zone-name
+end
+
+;; ============================================================
+;; MOVIMENTO
+;; ============================================================
+
+to move-molecules
+  ask turtles [
+    let allowed-patches patches with [member? zone [allowed-zones] of myself]
+    let next-patch one-of neighbors4 with [member? self allowed-patches]
+    if next-patch != nobody [
+      move-to next-patch
+      set compartment [zone] of next-patch
+    ]
+  ]
+end
+
+;; ============================================================
+;; REPOSIÇÃO DE SUBSTRATOS
+;; ============================================================
+
+to repor-substratos
+  if count nh3s < 3 [
+    create-nh3s 1 [
+      set allowed-zones ["bot-right"]
+      place-in "bot-right"
+      set color violet - 1 set size 0.8 set shape "square"
+    ]
+  ]
+
+  if count co2s < 3 [
+    create-co2s 1 [
+      set allowed-zones ["bot-right"]
+      place-in "bot-right"
+      set color violet - 1 set size 1.3 set shape "cloud"
+    ]
+  ]
+
+  if count aspartatos < 3 [
+    create-aspartatos 1 [
+      set allowed-zones ["bot-left" "bot-right"]
+      place-in "bot-right"
+      set color cyan - 1 set size 2 set shape "circle"
+    ]
+  ]
+
+  if count atps < 3 [
+    create-atps 1 [
+      set allowed-zones ["bot-left"]
+      place-in "bot-left"
+      set color orange set size 1.9 set shape "lightning"
+    ]
+  ]
+
+  if count aguas < 3 [
+    create-aguas 1 [
+      set allowed-zones ["top-right"]
+      place-in "top-right"
+      set color sky set size 1.5 set shape "drop"
+    ]
+  ]
+end
+
+;; ============================================================
+;; REAÇÕES
+;; ============================================================
+
+to react
+
+  ;; Reação 0 (CPS1) - NH3 + CO2 → Carbamoil-fosfato (NAG ativa, NÃO é consumido)
+  ask cps1s [
+    let near-nag nags in-radius 3
+    let near-nh3 nh3s in-radius 2
+    let near-co2 co2s in-radius 2
+    if any? near-nag and any? near-nh3 and any? near-co2 [
+      ask one-of near-nh3 [ die ]
+      ask one-of near-co2 [ die ]
+      ;; NAG NÃO morre — é ativador alostérico!
+      hatch-carbamoils-fosfatos 1 [
+        set allowed-zones ["bot-right"]
+        place-in "bot-right"
+        set color blue - 1 set size 2 set shape "circle"
+      ]
+    ]
+  ]
+
+  ;; Reação 1 (OTC) - Carbamoil-fosfato + Ornitina → Citrulina + Fosfato inorgânico
+  ask otcs [
+    let near-carbamoil carbamoils-fosfatos in-radius 2
+    let near-ort ortininas with [compartment = "bot-right"] in-radius 2
+    if any? near-carbamoil and any? near-ort [
+      ask one-of near-carbamoil [ die ]
+      ask one-of near-ort [ die ]
+      hatch-citrulinas 1 [
+        set allowed-zones ["bot-right" "bot-left"]
+        set color yellow + 3 set size 2.0 set shape "circle"
+        place-in "bot-right"
+      ]
+      hatch-fosfatos-inorganicos 1 [
+        set allowed-zones ["bot-right" "bot-left"]
+        set color grey - 2 set size 1.8 set shape "default"
+        place-in "bot-right"
+      ]
+    ]
+  ]
+
+  ;; Reação 2 (ASS1) - Citrulina + Aspartato + ATP → Citrulil-AMP + AMP
+  ask ass1s [
+    let near-cit citrulinas with [compartment = "bot-left"] in-radius 2
+    let near-asp aspartatos in-radius 2
+    let near-atp atps in-radius 2
+    if any? near-cit and any? near-asp and any? near-atp [
+      ask one-of near-cit [ die ]
+      ask one-of near-asp [ die ]
+      ask one-of near-atp [ die ]
+      hatch-citrulils-amp 1 [
+        set allowed-zones ["bot-left"]
+        set color pink - 3 set size 6 set shape "cow"
+        set birth-tick ticks + 20
+        place-in "bot-left"
+      ]
+      hatch-amps 1 [
+        set allowed-zones ["bot-left"]
+        set color pink set size 1.3 set shape "square"
+        place-in "bot-left"
+      ]
+    ]
+  ]
+
+  ;; Citrulil-AMP → Arginino-succinato (após 20 ticks)
+  ask citrulils-amp with [ticks >= birth-tick] [
+    hatch-argininosuccinatos 1 [
+      set allowed-zones ["bot-left" "top-left"]
+      set color green set size 2.0 set shape "circle"
+      place-in "bot-left"
+    ]
+    die
+  ]
+
+  ;; Reação 3 (ASL) - Arginino-succinato → Arginina + Fumarato
+  ask asls [
+    let near-argsu argininosuccinatos in-radius 2
+    if any? near-argsu [
+      ask one-of near-argsu [ die ]
+      hatch-argininas 1 [
+        set allowed-zones ["top-left" "top-right"]
+        set color green - 2 set size 2.0 set shape "circle"
+        place-in "top-left"
+      ]
+      hatch-fumaratos 1 [
+        set allowed-zones ["top-left"]
+        set color brown - 3 set size 1.2 set shape "square"
+        place-in "top-left"
+      ]
+    ]
+  ]
+
+  ;; Reação 4 (Arginase) - Arginina + Água → Ureia + Ornitina
+  ask args [
+    let near-arg argininas in-radius 2
+    let near-agua aguas in-radius 2
+    if any? near-arg and any? near-agua [
+      ask one-of near-arg [ die ]
+      ask one-of near-agua [ die ]
+      hatch-ureias 1 [
+        set allowed-zones ["top-right"]
+        set color white set size 1.9 set shape "suit diamond"
+        place-in "top-right"
+      ]
+      hatch-ortininas 1 [
+        set allowed-zones ["bot-right" "top-right"]
+        set color yellow set size 2.0 set shape "circle"
+        place-in "top-right"
+      ]
+    ]
+  ]
+
+end
+
+;; ============================================================
+;; LOOP PRINCIPAL
+;; ============================================================
+
+to go
+  move-molecules
+  react
+  repor-substratos
+  tick
+end

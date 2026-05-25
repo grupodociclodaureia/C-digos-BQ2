@@ -1,0 +1,128 @@
+;; ============================================================
+;; CICLO DA UREIA - 4 Quadrantes
+;; ============================================================
+
+;; --- BREEDS: COMPOSTOS ---
+breed [carbamoils-fosfatos carbamoil-fosfato]
+breed [ortininas ortinina]
+breed [citrulinas citrulina]
+breed [fosfatos-inorganicos fosfato-inorganico]
+breed [citrulils-amp citrulil-amp]
+breed [argininosuccinatos argininosuccinato]
+breed [argininas arginina]
+breed [aspartatos aspartato]
+breed [aguas agua]
+breed [atps atp]
+breed [amps amp]
+breed [fumaratos fumarato]
+breed [ureias ureia]
+
+;; --- BREEDS: ENZIMAS ---
+breed [otcs otc]
+breed [ass1s ass1]
+breed [asls asl]
+breed [args arg]
+
+;; --- PROPRIEDADES ---
+turtles-own [
+  compartment
+  allowed-zones
+]
+
+patches-own [
+  zone
+]
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+
+to setup
+  clear-all
+
+  ;; Define os 4 quadrantes
+  ask patches [
+    ifelse pycor >= 0 [
+      ifelse pxcor < 0 [
+        set zone "top-left"
+        set pcolor violet + 3
+      ][
+        set zone "top-right"
+        set pcolor violet + 3
+      ]
+    ][
+      ifelse pxcor < 0 [
+        set zone "bot-left"
+        set pcolor violet + 3
+      ][
+        set zone "bot-right"
+        set pcolor green + 1
+      ]
+    ]
+  ]
+
+  ;; --- Compostos da Mitocôndria ---
+  create-carbamoils-fosfatos 8 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color blue - 2 set size 1 set shape "circle"
+  ]
+
+  create-ortininas 6 [
+    set allowed-zones ["bot-right" "bot-left"]
+    place-in "bot-right"
+    set color yellow set size 1.5 set shape "circle"
+  ]
+
+  ;; --- Compostos que entram no Citosol ---
+  create-aspartatos 8 [
+    set allowed-zones ["bot-left" "bot-right"]
+    place-in "bot-left"
+    set color blue set size 1 set shape "circle"
+  ]
+
+  create-atps 8 [
+    set allowed-zones ["bot-left"]
+    place-in "bot-left"
+    set color orange set size 1.9 set shape "lightning"
+  ]
+
+  create-aguas 8 [
+    set allowed-zones ["top-right"]
+    place-in "top-right"
+    set color sky set size 1.5 set shape "drop"
+  ]
+
+  ;; --- Enzimas ---
+  create-otcs 3 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color red set size 2.5 set shape "star"
+  ]
+
+  create-ass1s 3 [
+    set allowed-zones ["bot-left"]
+    place-in "bot-left"
+    set color magenta + 1 set size 2.5 set shape "star"
+  ]
+
+  create-asls 3 [
+    set allowed-zones ["top-left"]
+    place-in "top-left"
+    set color red - 2 set size 2.5 set shape "star"
+  ]
+
+  create-args 3 [
+    set allowed-zones ["top-right"]
+    place-in "top-right"
+    set color violet - 2 set size 2.5 set shape "star"
+  ]
+
+  reset-ticks
+end
+
+to place-in [zone-name]
+  let target-patches patches with [zone = zone-name]
+  move-to one-of target-patches
+  set compartment zone-name
+end

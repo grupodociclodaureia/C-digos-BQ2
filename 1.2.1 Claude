@@ -1,0 +1,164 @@
+;; ============================================================
+;; CICLO DA UREIA - Modelo de Agentes NetLogo
+;; ============================================================
+
+;; --- BREEDS ---
+breed [ammonias ammonia]
+breed [co2s co2]
+breed [carbamoils carbamoil]
+breed [ornithines ornithine]
+breed [citrullines citrulline]
+breed [aspartates aspartate]
+breed [argininosuccinates argsu]
+breed [arginines arginine]
+breed [ureas urea]
+breed [fumarates fumarate]
+
+breed [cps1s cps1]
+breed [otcs otc]
+breed [ass1s ass1]
+breed [asls asl]
+breed [arg1s arg1]
+
+;; --- PROPRIEDADES ---
+turtles-own [
+  energy
+  compartment
+]
+
+patches-own [
+  zone
+]
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+
+to setup
+  clear-all
+
+  ;; Define zonas nos patches
+  ask patches [
+    ifelse pxcor < -10 [
+      set zone "outside"
+      set pcolor grey + 3
+    ][
+      ifelse pxcor < -5 [
+        set zone "membrane"
+        set pcolor orange + 2
+      ][
+        ifelse pxcor < 8 [
+          set zone "mitochondria"
+          set pcolor violet + 3
+        ][
+          set zone "cytosol"
+          set pcolor sky + 3
+        ]
+      ]
+    ]
+  ]
+
+  ;; Cria moléculas iniciais
+  create-ammonias 10 [ place-in "mitochondria" set color yellow set size 1 set shape "circle" ]
+  create-co2s 10     [ place-in "mitochondria" set color gray   set size 1 set shape "circle" ]
+  create-ornithines 5 [ place-in "mitochondria" set color green set size 1.2 set shape "circle" ]
+  create-aspartates 8 [ place-in "cytosol"      set color blue  set size 1 set shape "circle" ]
+
+  ;; Cria enzimas fixas
+  create-cps1s 3 [ place-in "mitochondria" set color red       set size 2 set shape "square" ]
+  create-otcs  3 [ place-in "mitochondria" set color red + 1   set size 2 set shape "square" ]
+  create-ass1s 3 [ place-in "cytosol"      set color magenta   set size 2 set shape "square" ]
+  create-asls  3 [ place-in "cytosol"      set color magenta - 1 set size 2 set shape "square" ]
+  create-arg1s 3 [ place-in "cytosol"      set color pink      set size 2 set shape "square" ]
+
+  reset-ticks
+end
+
+;; Utilitário: posiciona o agente em um compartimento
+to place-in [zone-name]
+  let target-patches patches with [zone = zone-name]
+  move-to one-of target-patches
+  set compartment zone-name
+end
+
+;; ============================================================
+;; LOOP PRINCIPAL
+;; ============================================================
+
+to go
+
+  ;; Movimento das moléculas dentro do próprio compartimento
+  ask turtles with [breed != cps1s and breed != otcs and
+                    breed != ass1s and breed != asls and breed != arg1s] [
+    let allowed patches with [zone = [compartment] of myself]
+    let next-patch one-of neighbors4 with [member? self allowed]
+    if next-patch != nobody [ move-to next-patch ]
+  ]
+
+  ;; Reação 1 - CPS1: NH3 + CO2 → Carbamoil-fosfato
+  ask cps1s [
+    let near-nh3 ammonias in-radius 2
+    let near-co2 co2s in-radius 2
+    if any? near-nh3 and any? near-co2 [
+      ask one-of near-nh3 [ die ]
+      ask one-of near-co2 [ die ]
+      hatch-carbamoils 1 [ set color cyan set size 1.5 set compartment "mitochondria" ]
+    ]
+  ]
+
+  ;; Reação 2 - OTC: Carbamoil-fosfato + Ornitina → Citrulina
+  ask otcs [
+    let near-carbamoil carbamoils in-radius 2
+    let near-orn ornithines in-radius 2
+    if any? near-carbamoil and any? near-orn [
+      ask one-of near-carbamoil [ die ]
+      ask one-of near-orn [ die ]
+      hatch-citrullines 1 [ set color cyan + 1 set size 1.5 set compartment "mitochondria" ]
+    ]
+  ]
+
+  ;; Transporte: Citrulina sai da mitocôndria → citosol
+  ask citrullines with [compartment = "mitochondria"] [
+    if any? patches in-radius 1 with [zone = "membrane"] [
+      set compartment "cytosol"
+      place-in "cytosol"
+    ]
+  ]
+
+  ;; Reação 3 - ASS1: Citrulina + Aspartato → Argininosuccinato
+  ask ass1s [
+    let near-cit citrullines in-radius 2
+    let near-asp aspartates in-radius 2
+    if any? near-cit and any? near-asp [
+      ask one-of near-cit [ die ]
+      ask one-of near-asp [ die ]
+      hatch-argininosuccinates 1 [ set color lime set size 1.5 set compartment "cytosol" ]
+    ]
+  ]
+
+  ;; Reação 4 - ASL: Argininosuccinato → Arginina + Fumarato
+  ask asls [
+    let near-argsu argininosuccinates in-radius 2
+    if any? near-argsu [
+      ask one-of near-argsu [ die ]
+      hatch-arginines  1 [ set color orange set size 1.5 set compartment "cytosol" ]
+      hatch-fumarates  1 [ set color brown  set size 1   set compartment "cytosol" ]
+    ]
+  ]
+
+  ;; Reação 5 - ARG1: Arginina → Ureia + Ornitina
+  ask arg1s [
+    let near-arg arginines in-radius 2
+    if any? near-arg [
+      ask one-of near-arg [ die ]
+      hatch-ureas     1 [ set color white  set size 1.5 set compartment "cytosol" ]
+      hatch-ornithines 1 [
+        set color green set size 1.2 set compartment "cytosol"
+        ;; Ornitina retorna para a mitocôndria pelo transporte
+        place-in "mitochondria"
+      ]
+    ]
+  ]
+
+  tick
+end

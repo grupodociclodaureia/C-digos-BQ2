@@ -1,0 +1,281 @@
+;; ============================================================
+;; CICLO DA UREIA - 4 Quadrantes
+;;
+;;  [top-left CITOSOL]  | [top-right CITOSOL]
+;;  --------------------|--------------------
+;;  [bot-left CITOSOL]  | [bot-right MITOCÔNDRIA]
+;;
+;; ============================================================
+
+;; --- BREEDS: COMPOSTOS ---
+breed [carbamoils carbamoil]
+breed [ornithines ornithine]
+breed [citrullines citrulline]
+breed [phosphates phosphate]
+breed [citrulyl-amps citrulyl-amp]
+breed [argininosuccinates argsu]
+breed [arginines arginine]
+breed [aspartates aspartate]
+breed [waters water]
+breed [atps atp]
+breed [amps amp]
+breed [fumarates fumarate]
+breed [ureas urea]
+
+;; --- BREEDS: ENZIMAS ---
+breed [otcs otc]
+breed [ass1s ass1]
+breed [asls asl]
+breed [arg1s arg1]
+
+;; --- PROPRIEDADES ---
+turtles-own [
+  compartment      ;; zona atual do agente
+  allowed-zones    ;; lista de zonas onde pode circular
+]
+
+patches-own [
+  zone
+]
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+
+to setup
+  clear-all
+
+  ;; Define os 4 quadrantes
+  ask patches [
+    ifelse pycor >= 0 [
+      ifelse pxcor < 0 [
+        set zone "top-left"
+        set pcolor violet + 2
+      ][
+        set zone "top-right"
+        set pcolor violet + 3
+      ]
+    ][
+      ifelse pxcor < 0 [
+        set zone "bot-left"
+        set pcolor violet + 1
+      ][
+        set zone "bot-right"   ;; MITOCÔNDRIA
+        set pcolor green + 1
+      ]
+    ]
+  ]
+
+  ;; --- Compostos da Mitocôndria ---
+  ;; Carbamoil-fosfato: só na mitocôndria
+  create-carbamoils 8 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color cyan set size 1.2 set shape "circle"
+  ]
+
+  ;; Ornitina: mitocôndria ↔ citosol inferior (retorna pelo bot-left)
+  create-ornithines 6 [
+    set allowed-zones ["bot-right" "bot-left"]
+    place-in "bot-right"
+    set color green - 1 set size 1.2 set shape "circle"
+  ]
+
+  ;; --- Compostos que entram no Citosol ---
+  ;; Aspartato: circula nos quadrantes inferiores até encontrar Citrulina
+  create-aspartates 8 [
+    set allowed-zones ["bot-left" "bot-right"]
+    place-in "bot-left"
+    set color blue set size 1 set shape "circle"
+  ]
+
+  ;; ATP: entra no citosol inferior
+  create-atps 8 [
+    set allowed-zones ["bot-left"]
+    place-in "bot-left"
+    set color yellow set size 1 set shape "circle"
+  ]
+
+  ;; Água: entra no citosol superior onde a Arginase age
+  create-waters 8 [
+    set allowed-zones ["top-left" "top-right"]
+    place-in "top-left"
+    set color sky set size 0.8 set shape "circle"
+  ]
+
+  ;; --- Enzimas (estrelas fixas) ---
+  ;; OTC: mitocôndria
+  create-otcs 3 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color red set size 2.5 set shape "star"
+  ]
+
+  ;; ASS1: citosol inferior (recebe Citrulina vinda da mitocôndria)
+  create-ass1s 3 [
+    set allowed-zones ["bot-left"]
+    place-in "bot-left"
+    set color magenta set size 2.5 set shape "star"
+  ]
+
+  ;; ASL: citosol inferior → superior
+  create-asls 3 [
+    set allowed-zones ["bot-left" "top-left"]
+    place-in "bot-left"
+    set color violet set size 2.5 set shape "star"
+  ]
+
+  ;; Arginase: citosol superior (onde Arginina circula)
+  create-arg1s 3 [
+    set allowed-zones ["top-left" "top-right"]
+    place-in "top-left"
+    set color pink set size 2.5 set shape "star"
+  ]
+
+  reset-ticks
+end
+
+;; Posiciona o agente em um quadrante
+to place-in [zone-name]
+  let target-patches patches with [zone = zone-name]
+  move-to one-of target-patches
+  set compartment zone-name
+end
+
+;; ============================================================
+;; MOVIMENTO RESTRITO POR allowed-zones
+;; ============================================================
+
+to move-molecules
+  ask turtles with [
+    breed != otcs and breed != ass1s and
+    breed != asls and breed != arg1s
+  ][
+    let allowed-patches patches with [member? zone [allowed-zones] of myself]
+    let next-patch one-of neighbors4 with [member? self allowed-patches]
+    if next-patch != nobody [
+      move-to next-patch
+      set compartment [zone] of next-patch
+    ]
+  ]
+end
+
+;; ============================================================
+;; REAÇÕES
+;; ============================================================
+
+to react
+
+  ;; Reação 1 (OTC - Mitocôndria bot-right)
+  ;; Carbamoil-fosfato + Ornitina → Citrulina + Fosfato inorgânico
+  ask otcs [
+    let near-carbamoil carbamoils in-radius 2
+    let near-orn ornithines with [compartment = "bot-right"] in-radius 2
+    if any? near-carbamoil and any? near-orn [
+      ask one-of near-carbamoil [ die ]
+      ask one-of near-orn [ die ]
+      hatch-citrullines 1 [
+        set allowed-zones ["bot-right" "bot-left"]   ;; circula nos quadrantes inferiores
+        set color cyan + 1 set size 1.3 set shape "circle"
+        place-in "bot-right"
+      ]
+      hatch-phosphates 1 [
+        set allowed-zones ["bot-right"]
+        set color white set size 0.8 set shape "circle"
+        place-in "bot-right"
+      ]
+    ]
+  ]
+
+  ;; Transporte: Citrulina atravessa de bot-right → bot-left
+  ask citrullines with [compartment = "bot-right"] [
+    if any? neighbors4 with [zone = "bot-left"] [
+      place-in "bot-left"
+    ]
+  ]
+
+  ;; Reação 2 (ASS1 - bot-left)
+  ;; Citrulina + Aspartato + ATP → Citrulil-AMP + AMP
+  ask ass1s [
+    let near-cit citrullines with [compartment = "bot-left"] in-radius 2
+    let near-asp aspartates in-radius 2
+    let near-atp atps in-radius 2
+    if any? near-cit and any? near-asp and any? near-atp [
+      ask one-of near-cit [ die ]
+      ask one-of near-asp [ die ]
+      ask one-of near-atp [ die ]
+      hatch-citrulyl-amps 1 [
+        set allowed-zones ["bot-left"]
+        set color lime set size 1 set shape "circle"
+        place-in "bot-left"
+      ]
+      hatch-amps 1 [
+        set allowed-zones ["bot-left"]
+        set color yellow - 2 set size 0.8 set shape "circle"
+        place-in "bot-left"
+      ]
+    ]
+  ]
+
+  ;; Citrulil-AMP → Arginino-succinato (imediato)
+  ask citrulyl-amps [
+    hatch-argininosuccinates 1 [
+      set allowed-zones ["bot-left" "top-left"]   ;; sobe para o citosol superior
+      set color lime + 1 set size 1.4 set shape "circle"
+      place-in "bot-left"
+    ]
+    die
+  ]
+
+  ;; Reação 3 (ASL - bot-left / top-left)
+  ;; Arginino-succinato → Arginina + Fumarato
+  ask asls [
+    let near-argsu argininosuccinates in-radius 2
+    if any? near-argsu [
+      ask one-of near-argsu [ die ]
+      hatch-arginines 1 [
+        set allowed-zones ["top-left" "top-right"]   ;; circula nos quadrantes superiores
+        set color orange set size 1.3 set shape "circle"
+        place-in "top-left"
+      ]
+      hatch-fumarates 1 [
+        set allowed-zones ["top-left" "top-right"]
+        set color brown set size 0.9 set shape "circle"
+        place-in "top-left"
+      ]
+    ]
+  ]
+
+  ;; Reação 4 (Arginase - top)
+  ;; Arginina + Água → Ureia + Ornitina
+  ask arg1s [
+    let near-arg arginines in-radius 2
+    let near-water waters in-radius 2
+    if any? near-arg and any? near-water [
+      ask one-of near-arg [ die ]
+      ask one-of near-water [ die ]
+      hatch-ureas 1 [
+        set allowed-zones ["top-left" "top-right"]
+        set color white set size 1.5 set shape "star"
+        place-in "top-right"
+      ]
+      ;; Ornitina retorna para a mitocôndria
+      hatch-ornithines 1 [
+        set allowed-zones ["bot-right" "bot-left"]
+        set color green - 1 set size 1.2 set shape "circle"
+        place-in "bot-left"   ;; entra pelo bot-left e caminha até bot-right
+      ]
+    ]
+  ]
+
+end
+
+;; ============================================================
+;; LOOP PRINCIPAL
+;; ============================================================
+
+to go
+  move-molecules
+  react
+  tick
+end

@@ -270,12 +270,12 @@ to react
       hatch-citrulinas 1 [
         set allowed-zones (sentence cytosol-zones ["bot-right"])
         set color yellow + 3 set size 2.0 set shape "circle"
-        place-in "bot-right"
+        place-in-cytosol
       ]
       hatch-fosfatos-inorganicos 1 [
         set allowed-zones cytosol-zones
         set color grey - 2 set size 1.8 set shape "default"
-        place-in "bot-right"
+        place-in-cytosol
       ]
     ]
   ]

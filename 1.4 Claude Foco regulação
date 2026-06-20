@@ -1,1 +1,472 @@
+;; ============================================================
+;; CICLO DA UREIA - Foco na Regulação (NAG × CPS1)
+;; Mitocôndria em destaque; citosol discreto
+;; Sliders: nh3-initial, nag-initial, ureia-probability
+;; ============================================================
 
+breed [nh3s nh3]
+breed [co2s co2]
+breed [nags nag]
+breed [carbamoils-fosfatos carbamoil-fosfato]
+breed [ortininas ortinina]
+breed [citrulinas citrulina]
+breed [fosfatos-inorganicos fosfato-inorganico]
+breed [citrulils-amp citrulil-amp]
+breed [argininosuccinatos argininosuccinato]
+breed [argininas arginina]
+breed [aspartatos aspartato]
+breed [aguas agua]
+breed [atps atp]
+breed [amps amp]
+breed [fumaratos fumarato]
+breed [ureias ureia]
+
+breed [cps1s cps1]
+breed [otcs otc]
+breed [ass1s ass1]
+breed [asls asl]
+breed [args arg]
+
+turtles-own [
+  compartment
+  allowed-zones
+  birth-tick
+  activation-level   ;; para CPS1: 0 (inativa) ou 1 (ativa)
+]
+
+patches-own [
+  zone
+]
+
+to-report cytosol-zones
+  report ["top-left" "top-right" "bot-left"]
+end
+
+;; ============================================================
+;; SETUP
+;; ============================================================
+
+to setup
+  clear-all
+
+  if not is-number? nh3-initial    [ set nh3-initial 10 ]
+  if not is-number? nag-initial    [ set nag-initial 5  ]
+  if not is-number? ureia-probability [ set ureia-probability 0.5 ]
+
+  ;; --- Zonas de cor ---
+  ask patches [
+    ifelse pycor >= 0 [
+      ifelse pxcor < 0 [
+        set zone "top-left"
+        set pcolor violet + 4    ;; citosol apagado
+      ][
+        set zone "top-right"
+        set pcolor violet + 4
+      ]
+    ][
+      ifelse pxcor < 0 [
+        set zone "bot-left"
+        set pcolor violet + 4
+      ][
+        set zone "bot-right"
+        set pcolor green - 1     ;; mitocôndria vibrante/escura
+      ]
+    ]
+  ]
+
+  ;; ── MITOCÔNDRIA – substratos grandes e vistosos ───────────
+
+  create-nh3s nh3-initial [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color magenta - 1
+    set size 1.4
+    set shape "square"
+  ]
+
+  create-co2s 10 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color sky - 1
+    set size 1.8
+    set shape "cloud"
+  ]
+
+  ;; NAG — grande e brilhante (amarelo-ouro)
+  create-nags nag-initial [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color yellow          ;; cor base; pulsa no go
+    set size 2.5
+    set shape "triangle"
+  ]
+
+  ;; ATPs mitocondriais (para CPS1)
+  create-atps 4 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color orange
+    set size 1.6
+    set shape "lightning"
+  ]
+
+  ;; ── CPS1 – enzima regulada, tamanho grande ────────────────
+  create-cps1s 3 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set activation-level 0
+    set color red            ;; inativa = vermelho
+    set size 2.8
+    set shape "star"
+  ]
+
+  ;; OTC – mitocôndria, tamanho médio
+  create-otcs 3 [
+    set allowed-zones ["bot-right"]
+    place-in "bot-right"
+    set color red
+    set size 2.0
+    set shape "star"
+  ]
+
+  ;; Ornitina transita (tamanho médio)
+  create-ortininas 6 [
+    set allowed-zones (sentence cytosol-zones ["bot-right"])
+    place-in-cytosol
+    set color yellow - 1
+    set size 1.4
+    set shape "circle"
+  ]
+
+  ;; ── CITOSOL – tudo menor e apagado ────────────────────────
+
+  create-aspartatos 8 [
+    set allowed-zones cytosol-zones
+    place-in-cytosol
+    set color cyan + 3       ;; claro / apagado
+    set size 1.0
+    set shape "circle"
+  ]
+
+  create-atps 8 [
+    set allowed-zones cytosol-zones
+    place-in-cytosol
+    set color orange + 3
+    set size 0.9
+    set shape "lightning"
+  ]
+
+  create-aguas 8 [
+    set allowed-zones cytosol-zones
+    place-in-cytosol
+    set color sky + 3
+    set size 0.8
+    set shape "drop"
+  ]
+
+  ;; Enzimas do citosol – menores e cores pastel
+  create-ass1s 3 [
+    set allowed-zones cytosol-zones
+    place-in-cytosol
+    set color magenta + 3
+    set size 1.5
+    set shape "star"
+  ]
+
+  create-asls 3 [
+    set allowed-zones cytosol-zones
+    place-in-cytosol
+    set color red + 3
+    set size 1.5
+    set shape "star"
+  ]
+
+  create-args 3 [
+    set allowed-zones cytosol-zones
+    place-in-cytosol
+    set color violet + 2
+    set size 1.5
+    set shape "star"
+  ]
+
+  reset-ticks
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; UTILITÁRIOS
+;; ─────────────────────────────────────────────────────────────
+
+to place-in [zone-name]
+  let target-patches patches with [zone = zone-name]
+  move-to one-of target-patches
+  set compartment zone-name
+end
+
+to place-in-cytosol
+  let chosen-zone one-of cytosol-zones
+  place-in chosen-zone
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; VISUAL DE REGULAÇÃO — NAG brilha / CPS1 muda aparência
+;; ─────────────────────────────────────────────────────────────
+
+to update-regulation-visuals
+
+  ;; NAG: pulsa entre amarelo e laranja dependendo de ticks
+  ask nags [
+    ifelse (ticks mod 6) < 3
+      [ set color yellow ]
+      [ set color orange ]
+  ]
+
+  ;; CPS1: cor e shape refletem ativação pelo NAG próximo
+  ask cps1s [
+    let nearby-nag count nags in-radius 3
+    ifelse nearby-nag >= 2 [
+      ;; ATIVA: verde-limão + estrela maior
+      set activation-level 1
+      set color lime
+      set size 3.5
+      set shape "star"
+    ][
+      ifelse nearby-nag = 1 [
+        ;; PARCIALMENTE ATIVA: amarelo + tamanho médio
+        set activation-level 0
+        set color yellow - 1
+        set size 2.8
+        set shape "star"
+      ][
+        ;; INATIVA: vermelho + menor
+        set activation-level 0
+        set color red
+        set size 2.2
+        set shape "star"
+      ]
+    ]
+  ]
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; MOVIMENTO
+;; ─────────────────────────────────────────────────────────────
+
+to move-molecules
+  ask turtles [
+    let allowed-patches patches with [member? zone [allowed-zones] of myself]
+    let next-patch one-of neighbors4 with [member? self allowed-patches]
+    if next-patch != nobody [
+      move-to next-patch
+      set compartment [zone] of next-patch
+    ]
+  ]
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; REPOSIÇÃO
+;; ─────────────────────────────────────────────────────────────
+
+to repor-substratos
+  ;; Mitocôndria
+  if count nh3s < 3 [
+    create-nh3s 1 [
+      set allowed-zones ["bot-right"]
+      place-in "bot-right"
+      set color magenta - 1 set size 1.4 set shape "square"
+    ]
+  ]
+  if count co2s < 3 [
+    create-co2s 1 [
+      set allowed-zones ["bot-right"]
+      place-in "bot-right"
+      set color sky - 1 set size 1.8 set shape "cloud"
+    ]
+  ]
+
+  ;; Citosol (tamanhos reduzidos)
+  if count aspartatos < 3 [
+    create-aspartatos 1 [
+      set allowed-zones cytosol-zones
+      place-in "top-right"
+      set color cyan + 3 set size 1.0 set shape "circle"
+    ]
+  ]
+  if count atps with [member? compartment cytosol-zones] < 3 [
+    create-atps 1 [
+      set allowed-zones cytosol-zones
+      place-in "bot-left"
+      set color orange + 3 set size 0.9 set shape "lightning"
+    ]
+  ]
+  if count aguas < 3 [
+    create-aguas 1 [
+      set allowed-zones cytosol-zones
+      place-in "top-right"
+      set color sky + 3 set size 0.8 set shape "drop"
+    ]
+  ]
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; REAÇÕES
+;; ─────────────────────────────────────────────────────────────
+
+to react
+
+  ;; Reação 0 (CPS1): NH3 + CO2 → Carbamoil-fosfato
+  ;; Probabilidade explicitamente ligada ao NAG próximo
+  ask cps1s [
+    let near-nag  nags   in-radius 3
+    let near-nh3  nh3s   in-radius 2
+    let near-co2  co2s   in-radius 2
+    if any? near-nh3 and any? near-co2 [
+      let nag-count count near-nag
+      ;; cada NAG contribui 0.2 → máximo 1.0 com 5 NAGs
+      let activation-prob min (list 1.0 (0.2 * nag-count))
+      if random-float 1.0 < activation-prob [
+        ask one-of near-nh3 [ die ]
+        ask one-of near-co2 [ die ]
+        hatch-carbamoils-fosfatos 1 [
+          set allowed-zones ["bot-right"]
+          place-in "bot-right"
+          set color blue - 1 set size 1.8 set shape "circle"
+        ]
+      ]
+    ]
+  ]
+
+  ;; Reação 1 (OTC): Carbamoil-P + Ornitina → Citrulina + Pi
+  ask otcs [
+    let near-carbamoil carbamoils-fosfatos in-radius 2
+    let near-ort ortininas with [compartment = "bot-right"] in-radius 2
+    if any? near-carbamoil and any? near-ort [
+      ask one-of near-carbamoil [ die ]
+      ask one-of near-ort [ die ]
+      hatch-citrulinas 1 [
+        set allowed-zones (sentence cytosol-zones ["bot-right"])
+        set color yellow + 3 set size 1.0 set shape "circle"  ;; menor no citosol
+        place-in-cytosol
+      ]
+      hatch-fosfatos-inorganicos 1 [
+        set allowed-zones cytosol-zones
+        set color grey + 2 set size 0.7 set shape "default"
+        place-in-cytosol
+      ]
+    ]
+  ]
+
+  ;; Reação 2 (ASS1): Citrulina + Aspartato + ATP → Citrulil-AMP + AMP
+  ask ass1s [
+    let near-cit citrulinas with [member? compartment cytosol-zones] in-radius 2
+    let near-asp aspartatos in-radius 2
+    let near-atp atps with [member? compartment cytosol-zones] in-radius 2
+    if any? near-cit and any? near-asp and any? near-atp [
+      ask one-of near-cit [ die ]
+      ask one-of near-asp [ die ]
+      ask one-of near-atp [ die ]
+      hatch-citrulils-amp 1 [
+        set allowed-zones cytosol-zones
+        set color pink + 2 set size 1.2 set shape "circle"
+        set birth-tick ticks + 20
+        place-in compartment
+      ]
+      hatch-amps 1 [
+        set allowed-zones cytosol-zones
+        set color pink + 3 set size 0.7 set shape "square"
+        place-in compartment
+      ]
+    ]
+  ]
+
+  ;; Citrulil-AMP → Arginino-succinato
+  ask citrulils-amp with [ticks >= birth-tick] [
+    hatch-argininosuccinatos 1 [
+      set allowed-zones cytosol-zones
+      set color green + 2 set size 1.0 set shape "circle"
+      place-in compartment
+    ]
+    die
+  ]
+
+  ;; Reação 3 (ASL): Arginino-succinato → Arginina + Fumarato
+  ask asls [
+    let near-argsu argininosuccinatos in-radius 2
+    if any? near-argsu [
+      ask one-of near-argsu [ die ]
+      hatch-argininas 1 [
+        set allowed-zones cytosol-zones
+        set color green + 2 set size 1.0 set shape "circle"
+        place-in compartment
+      ]
+      hatch-fumaratos 1 [
+        set allowed-zones cytosol-zones
+        set color brown + 2 set size 0.7 set shape "square"
+        place-in compartment
+      ]
+    ]
+  ]
+
+  ;; Reação 4 (Arginase): Arginina + Água → Ureia + Ornitina
+  ;; ureia-probability é o parâmetro explícito de regulação
+  ask args [
+    let near-arg   argininas in-radius 2
+    let near-agua  aguas     in-radius 2
+    if any? near-arg and any? near-agua [
+      if random-float 1.0 < ureia-probability [
+        ask one-of near-arg  [ die ]
+        ask one-of near-agua [ die ]
+        hatch-ureias 1 [
+          set allowed-zones cytosol-zones
+          set color white set size 1.0 set shape "suit diamond"
+          place-in compartment
+        ]
+        hatch-ortininas 1 [
+          set allowed-zones (sentence cytosol-zones ["bot-right"])
+          set color yellow - 1 set size 1.4 set shape "circle"
+          place-in compartment
+        ]
+      ]
+    ]
+  ]
+
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; LOOP PRINCIPAL
+;; ─────────────────────────────────────────────────────────────
+
+to go
+  move-molecules
+  react
+  repor-substratos
+  update-regulation-visuals
+  tick
+end
+
+;; ─────────────────────────────────────────────────────────────
+;; REPORTERS PARA MONITORS NA INTERFACE
+;; ─────────────────────────────────────────────────────────────
+
+to-report nag-count-report
+  report count nags
+end
+
+to-report nh3-count-report
+  report count nh3s
+end
+
+to-report co2-count-report
+  report count co2s
+end
+
+to-report cps1-ativas-report
+  report count cps1s with [color = lime]
+end
+
+to-report carbamoil-count-report
+  report count carbamoils-fosfatos
+end
+
+to-report ureia-count-report
+  report count ureias
+end

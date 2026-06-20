@@ -100,26 +100,26 @@ to setup
   ;; --- Ornitina: transita entre mitocôndria e citosol ---
   create-ortininas 6 [
     set allowed-zones (sentence cytosol-zones ["bot-right"])
-    place-in "top-right"
+    place-in-cytosol
     set color yellow set size 2.0 set shape "circle"
   ]
 
   ;; --- Compostos do citosol ---
   create-aspartatos 8 [
     set allowed-zones cytosol-zones
-    place-in "top-right"
+    place-in-cytosol
     set color cyan - 1 set size 2 set shape "circle"
   ]
 
   create-atps 8 [
     set allowed-zones cytosol-zones
-    place-in "bot-left"
+    place-in-cytosol
     set color orange set size 1.9 set shape "lightning"
   ]
 
   create-aguas 8 [
     set allowed-zones cytosol-zones
-    place-in "top-right"
+    place-in-cytosol
     set color sky set size 1.5 set shape "drop"
   ]
 
@@ -140,19 +140,19 @@ to setup
   ;; ASS1, ASL e Arginase ficam no citosol (todo o citosol)
   create-ass1s 3 [
     set allowed-zones cytosol-zones
-    place-in "bot-left"
+    place-in-cytosol
     set color magenta + 1 set size 2.5 set shape "star"
   ]
 
   create-asls 3 [
     set allowed-zones cytosol-zones
-    place-in "top-left"
+    place-in-cytosol
     set color red - 2 set size 2.5 set shape "star"
   ]
 
   create-args 3 [
     set allowed-zones cytosol-zones
-    place-in "top-right"
+    place-in-cytosol
     set color violet - 2 set size 2.5 set shape "star"
   ]
 
@@ -163,6 +163,11 @@ to place-in [zone-name]
   let target-patches patches with [zone = zone-name]
   move-to one-of target-patches
   set compartment zone-name
+end
+
+to place-in-cytosol
+  let chosen-zone one-of cytosol-zones
+  place-in chosen-zone
 end
 
 ;; ============================================================
